@@ -1,0 +1,10 @@
+prefix=/home/gromero/kiss
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: kissfft
+Description: A Fast Fourier Transform (FFT) library that tries to Keep it Simple, Stupid
+Version: 131.1.0
+
+Libs:  -L${libdir} -lkissfft-float
+Cflags: -I${includedir}/kissfft  -Dkiss_fft_scalar=float -DKISS_FFT_SHARED
