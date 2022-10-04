@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
     if (fft_scratch == NULL) {
         printf("malloc() failed!\n");
 	exit(1);
-    } 
+    }
 
     kfft_cfg = kiss_fftr_alloc(TS_SIZE, 0, fft_scratch, &fft_scratch_size);
     if (kfft_cfg != fft_scratch) {
