@@ -5,8 +5,11 @@
 #include "hann_window.h"
 #include "load_raw.h"
 
-#define TS_SIZE 512
-#define SAMPLES 16000
+#define TS_SIZE   512
+#define FFT_SIZE  512
+#define TS_FRAME  480   // 30 ms
+#define TS_STRIDE 320   // 20 ms
+#define SAMPLES   16000
 
 struct complex_float_t {
 	float real;
@@ -21,19 +24,43 @@ void usage(char *cmd)
     exit(1);
 }
 
+void padding(float* t)
+{
+    int i;
+
+    // Pad with zero FFT_SIZE - TS_FRAME points
+    for (i = TS_FRAME; i < FFT_SIZE; i++) {
+        t[i] = 0;
+    }
+}
+
+float get_max(float* a, int length)
+{
+    int i;
+    float max = a[0];
+    for (i = 1; i < length; i++) {
+        if (a[i] > max) {
+            max = a[i];
+	}
+    }
+
+    return max;
+}
+
 int main(int argc, char* argv[])
 {
     size_t fft_scratch_size = 0;
 
-    float input[TS_SIZE] = { [0 ... (TS_SIZE - 1)] = 1 };  // input
+    // float input[TS_SIZE] = { [0 ... (TS_SIZE - 1)] = 1 };  // input
+
+    float input[SAMPLES];
 
     if (argc != 2) {
         usage(argv[0]);
     }
 
-    load_raw(argv[1], SAMPLES, input);
-
-    exit(10);
+    int amount_of_samples_to_load = 2 * TS_STRIDE + TS_FRAME;
+    load_raw(argv[1], 0 * TS_STRIDE, amount_of_samples_to_load, input);
 
     struct complex_float_t* output;
     output = malloc((TS_SIZE / 2 + 1) * sizeof(struct complex_float_t));
