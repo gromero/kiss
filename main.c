@@ -72,7 +72,10 @@ int main(int argc, char* argv[])
     // for (int i = 0; i < W_TS_SIZE; i++) printf("%.25f\n", input[i]);
 
     // Normalize.
-    float max = get_max(input, amount_of_samples_to_load);
+    // float max = get_max(input, amount_of_samples_to_load);
+    // 'max' must be the max value considering the whole time series (1s,
+    // hence for testing purposes, just hard code it for now.
+    float max = 0.025794744;
     printf("normalization, max = %.25f\n", max);
     for (int i = 0; i < amount_of_samples_to_load; i++) {
         input[i] /= max;
