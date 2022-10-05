@@ -59,8 +59,8 @@ int main(int argc, char* argv[])
         usage(argv[0]);
     }
 
-    int amount_of_samples_to_load = 2 * TS_STRIDE + TS_FRAME;
-    load_raw(argv[1], 0 * TS_STRIDE, amount_of_samples_to_load, input);
+    int amount_of_samples_to_load = TS_FRAME;
+    load_raw(argv[1], 2 * TS_STRIDE, amount_of_samples_to_load, input);
 
     struct complex_float_t* output;
     output = malloc((TS_SIZE / 2 + 1) * sizeof(struct complex_float_t));
