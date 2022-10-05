@@ -70,7 +70,8 @@ int main(int argc, char* argv[])
     for (int i = 0; i < (TS_SIZE / 2 + 1); i++) {
         struct complex_float_t c;
         c = output[i];
-        printf("%f\n", sqrtf(c.real*c.real + c.img*c.img));
+        // printf("i: %d, %f\n", i, sqrtf(c.real*c.real + c.img*c.img));
+        printf("i: %d, %f + %fj\n", i, c.real, c.img);
     }
 
     // for (int i = 0; i < W_TS_SIZE; i++) printf("%.25f\n", input[i]);
