@@ -71,7 +71,19 @@ int main(int argc, char* argv[])
 
     // for (int i = 0; i < W_TS_SIZE; i++) printf("%.25f\n", input[i]);
 
+    // Normalize.
+    float max = get_max(input, amount_of_samples_to_load);
+    printf("normalization, max = %.25f\n", max);
+    for (int i = 0; i < amount_of_samples_to_load; i++) {
+        input[i] /= max;
+    }
+
+    // Apply Hann window to avoid abrupt cuts on frame edges.
     apply_hann_window(input);
+
+    // Pad 480 frame to 512 (next power of 2 value close to 480) before applying
+    // FFT.
+    padding(input);
 
     kiss_fftr_cfg kfft_cfg =  kiss_fftr_alloc(TS_SIZE, 0, NULL, &fft_scratch_size);
     if (kfft_cfg != NULL) {
