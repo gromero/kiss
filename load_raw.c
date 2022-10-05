@@ -35,7 +35,7 @@ int load_raw(char* path, int sample_offset, int samples, float* output)
         if (read(fd, &c, 1) != 1) return j+1;
         if (read(fd, &b, 1) != 1) return j+1;
 	if (read(fd, &a, 1) != 1) return j+1;
-	uint32_t i = (uint32_t) a << 24 | b << 16 | c << 8;
+	int i = (int) a << 24 | b << 16 | c << 8;
         f = output[j] = ((float) i) * (1.0 / ((float) 0x80000000));
 
         printf("%#.25f,\n", f);
