@@ -120,7 +120,16 @@ int main(int argc, char* argv[])
         // printf("i: %d, %f + %fj\n", i, c.real, c.img);
     }
 
+    // 40 mel bins returned in the first 40 elements of spectrum_bins.
     apply_mel_weight(spectrum_bins);
 
-    // for (int i = 0; i < W_TS_SIZE; i++) printf("%.25f\n", input[i]);
+    float mel_bins[40];
+    for (int i; i < 40; i++) {
+       // Adding 1e-6 before log() computes the stabilized log, but I'm not
+       // totally convinced that's necessary here. I´ll leave this addition by
+       // now so the numbers matches the Python reference numbers.
+       mel_bins[i] = logf(spectrum_bins[i] + (float) 1/1000000);
+    }
+
+    for (int i = 0; i < 40; i++) printf("%.25f\n", mel_bins[i]);
 }
