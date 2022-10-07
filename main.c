@@ -4,6 +4,7 @@
 
 #include "hann_window.h"
 #include "load_raw.h"
+#include "mel_weight.h"
 
 #define TS_SIZE   512
 #define FFT_SIZE  512
@@ -109,13 +110,17 @@ int main(int argc, char* argv[])
     // FFT
     kiss_fftr((kiss_fftr_cfg)kfft_cfg, input, (kiss_fft_cpx*)output);
 
+    float spectrum_bins[257];
     for (int i = 0; i < (TS_SIZE / 2 + 1); i++) {
         struct complex_float_t c;
+        // Print magnitudes of the spectrum bins.
         c = output[i];
-        // Print magnitudes
-        printf("i: %d\t, %.25f\n", i, sqrtf(c.real*c.real + c.img*c.img));
+        spectrum_bins[i] = sqrtf((c.real * c.real) + (c.img * c.img));
+        printf("i: %d\t, %.25f\n", i, spectrum_bins[i]);
         // printf("i: %d, %f + %fj\n", i, c.real, c.img);
     }
+
+    apply_mel_weight(spectrum_bins);
 
     // for (int i = 0; i < W_TS_SIZE; i++) printf("%.25f\n", input[i]);
 }
