@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <kissfft/kiss_fftr.h>
+#define _USE_MATH_DEFINES // For M_PI
 #include <math.h>
+#include <assert.h>
+#include <complex.h>
 
 #include "hann_window.h"
 #include "load_raw.h"
@@ -89,7 +92,7 @@ int main(int argc, char* argv[])
     // FFT.
     padding(input);
 
-    kiss_fftr_cfg kfft_cfg =  kiss_fftr_alloc(TS_SIZE, 0, NULL, &fft_scratch_size);
+    kiss_fftr_cfg kfft_cfg = kiss_fftr_alloc(TS_SIZE, 0, NULL, &fft_scratch_size);
     if (kfft_cfg != NULL) {
         printf("FFT sizing failed!\n");
     } else {
@@ -120,16 +123,36 @@ int main(int argc, char* argv[])
         // printf("i: %d, %f + %fj\n", i, c.real, c.img);
     }
 
-    // 40 mel bins returned in the first 40 elements of spectrum_bins.
+    // 40 mel bins returned in the first 40 elements of spectrum_bins (reused).
     apply_mel_weight(spectrum_bins);
 
-    float mel_bins[40];
+    // Upper half zeroed as 2N Makhoul is used for padding.
+    float mel_bins[2 * 40] = { 0 };
     for (int i; i < 40; i++) {
        // Adding 1e-6 before log() computes the stabilized log, but I'm not
        // totally convinced that's necessary here. I´ll leave this addition by
-       // now so the numbers matches the Python reference numbers.
+       // now so the numbers match the Python reference numbers.
        mel_bins[i] = logf(spectrum_bins[i] + (float) 1/1000000);
     }
+    for (int i = 0; i < 40; i++) printf("%.25f,\n", mel_bins[i]);
 
-    for (int i = 0; i < 40; i++) printf("%.25f\n", mel_bins[i]);
+    // DCT-II. Using complex.h, but cexp can be implemented using sin and cos,
+    // i.e. using Euler's formula. No sure how 'complex' type will be handled
+    // in the embedded system tho.
+    // TODO(gromero): check returns below
+    free(fft_scratch);
+    kfft_cfg = kiss_fftr_alloc(80, 0, NULL, &fft_scratch_size);
+    fft_scratch = malloc(fft_scratch_size);
+    kfft_cfg = kiss_fftr_alloc(80, 0, fft_scratch, &fft_scratch_size);
+    assert(kfft_cfg == fft_scratch);
+    kiss_fftr((kiss_fftr_cfg)kfft_cfg, mel_bins, (kiss_fft_cpx*)output);
+
+    // For the final spectrogram, only the first 10 DCT values will be taken to
+    // form the MFCCs (mel-log filterbank cepstral coeficients).
+    float dct[40]; // Only 10 first cepstrum coeficients will be used
+    for (int i; i < 40; i++) {
+	float complex z = output[i].real + output[i].img * I;
+	dct[i] = creal(z * 2.0 * cexp(-I * M_PI * i * 0.5 / 40));
+    }
+    for (int i = 0; i < 40; i++) printf("dct[%d] = %.25f\n", i, dct[i]);
 }
