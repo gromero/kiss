@@ -155,4 +155,22 @@ int main(int argc, char* argv[])
 	dct[i] = creal(z * 2.0 * cexp(-I * M_PI * i * 0.5 / 40));
     }
     for (int i = 0; i < 40; i++) printf("dct[%d] = %.25f\n", i, dct[i]);
+
+    float mfcc[40];
+    for (int i = 0; i < 40; i++) {
+	// I think Tensorflow's mfccs_from_log_mel_spectrograms() is screwed up,
+	// but will keep this math for comparison purposes for now and mainly
+	// because the model ended up trained with that TF math.
+	// TODO(gromero): check with Everton if that math really sucks in TF.
+	mfcc[i] = dct[i] * (1.0 / sqrtf(40 /* num. mel bins */ * 2));
+    }
+    for (int i = 0; i < 10; i++) printf("mfcc[%d] = %2d\n", i, mfcc[i]);
+
+    float input_scale = 0.5847029089927673;
+    float input_zero_point = 83;
+    int spectrogram[10]; // We've got 40 MFCCs, but we only use 10.
+    for (int i = 0; i < 10; i++) {
+        spectrogram[i] = (int8_t)(mfcc[i] / input_scale + input_zero_point);
+    }
+    for (int i = 0; i < 10; i++) printf("spectrogram[%d] = %2d\n", i, spectrogram[i]);
 }
