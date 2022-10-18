@@ -128,7 +128,7 @@ int main(int argc, char* argv[])
 
     // Upper half zeroed as 2N Makhoul is used for padding.
     float mel_bins[2 * 40] = { 0 };
-    for (int i; i < 40; i++) {
+    for (int i = 0; i < 40; i++) {
        // Adding 1e-6 before log() computes the stabilized log, but I'm not
        // totally convinced that's necessary here. I´ll leave this addition by
        // now so the numbers match the Python reference numbers.
@@ -150,7 +150,7 @@ int main(int argc, char* argv[])
     // For the final spectrogram, only the first 10 DCT values will be taken to
     // form the MFCCs (mel-log filterbank cepstral coeficients).
     float dct[40]; // Only 10 first cepstrum coeficients will be used
-    for (int i; i < 40; i++) {
+    for (int i = 0; i < 40; i++) {
 	float complex z = output[i].real + output[i].img * I;
 	dct[i] = creal(z * 2.0 * cexp(-I * M_PI * i * 0.5 / 40));
     }
