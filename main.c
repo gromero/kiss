@@ -9,33 +9,22 @@
 #include "load_raw.h"
 #include "mel_weight.h"
 
-#define TS_SIZE   512
-#define FFT_SIZE  512
+#define FFT_SIZE  512   // closest value power of 2 above 480 (TS_FRAME)
 #define TS_FRAME  480   // 30 ms
 #define TS_STRIDE 320   // 20 ms
-#define SAMPLES   16000
+#define SAMPLES   16000 // 1 s @ 16 kHz
+#define FRAMES    49    // Num. of frames of size TS_FRAME in SAMPLES
+#define MFCC      10    // Num. of MFCCs per frame
 
 struct complex_float_t {
 	float real;
 	float img;
 };
 
-// typedef kiss_fft_cpx complex_float_t;
-
 void usage(char *cmd)
 {
     fprintf(stderr, "Usage: %s <.wav or .raw FILE>\n", cmd);
     exit(1);
-}
-
-void padding(float* t)
-{
-    int i;
-
-    // Pad with zero FFT_SIZE - TS_FRAME points
-    for (i = TS_FRAME; i < FFT_SIZE; i++) {
-        t[i] = 0;
-    }
 }
 
 float get_max(float* a, int length)
@@ -51,48 +40,27 @@ float get_max(float* a, int length)
     return max;
 }
 
-int main(int argc, char* argv[])
+int frame_spectrogram(float* ts /* time series */, int (*spec) /* spectrogram 1x10 */)
 {
     size_t fft_scratch_size = 0;
 
-    // float input[TS_SIZE] = { [0 ... (TS_SIZE - 1)] = 1 };  // input
-
-    float input[SAMPLES];
-
-    if (argc != 2) {
-        usage(argv[0]);
+    // Last FFT_SIZE - TS_FRAME values are kept zeroed (padded)
+    float input[FFT_SIZE] = { 0 };
+    for (int i = 0; i <  TS_FRAME; i++) {
+        input[i] = ts[i];
     }
 
-    int amount_of_samples_to_load = TS_FRAME;
-    load_raw(argv[1], 2 * TS_STRIDE, amount_of_samples_to_load, input);
-
     struct complex_float_t* output;
-    output = malloc((TS_SIZE / 2 + 1) * sizeof(struct complex_float_t));
+    output = malloc((FFT_SIZE / 2 + 1) * sizeof(struct complex_float_t));
     if (output == NULL) {
         printf("malloc() failed!\n");
         exit(1);
     }
 
-    // for (int i = 0; i < W_TS_SIZE; i++) printf("%.25f\n", input[i]);
-
-    // Normalize.
-    // float max = get_max(input, amount_of_samples_to_load);
-    // 'max' must be the max value considering the whole time series (1s,
-    // hence for testing purposes, just hard code it for now.
-    float max = 0.025794744;
-    printf("normalization, max = %.25f\n", max);
-    for (int i = 0; i < amount_of_samples_to_load; i++) {
-        input[i] /= max;
-    }
-
     // Apply Hann window to avoid abrupt cuts on frame edges.
     apply_hann_window(input);
 
-    // Pad 480 frame to 512 (next power of 2 value close to 480) before applying
-    // FFT.
-    padding(input);
-
-    kiss_fftr_cfg kfft_cfg = kiss_fftr_alloc(TS_SIZE, 0, NULL, &fft_scratch_size);
+    kiss_fftr_cfg kfft_cfg = kiss_fftr_alloc(FFT_SIZE, 0, NULL, &fft_scratch_size);
     if (kfft_cfg != NULL) {
         printf("FFT sizing failed!\n");
     } else {
@@ -105,16 +73,18 @@ int main(int argc, char* argv[])
 	exit(1);
     }
 
-    kfft_cfg = kiss_fftr_alloc(TS_SIZE, 0, fft_scratch, &fft_scratch_size);
+    kfft_cfg = kiss_fftr_alloc(FFT_SIZE, 0, fft_scratch, &fft_scratch_size);
     if (kfft_cfg != fft_scratch) {
         printf("FFT size allocation failed!\n");
     }
 
     // FFT
     kiss_fftr((kiss_fftr_cfg)kfft_cfg, input, (kiss_fft_cpx*)output);
+    // add check
+    free(fft_scratch);
 
     float spectrum_bins[257];
-    for (int i = 0; i < (TS_SIZE / 2 + 1); i++) {
+    for (int i = 0; i < (FFT_SIZE / 2 + 1); i++) {
         struct complex_float_t c;
         // Print magnitudes of the spectrum bins.
         c = output[i];
@@ -140,12 +110,12 @@ int main(int argc, char* argv[])
     // i.e. using Euler's formula. No sure how 'complex' type will be handled
     // in the embedded system tho.
     // TODO(gromero): check returns below
-    free(fft_scratch);
     kfft_cfg = kiss_fftr_alloc(80, 0, NULL, &fft_scratch_size);
     fft_scratch = malloc(fft_scratch_size);
     kfft_cfg = kiss_fftr_alloc(80, 0, fft_scratch, &fft_scratch_size);
     assert(kfft_cfg == fft_scratch);
     kiss_fftr((kiss_fftr_cfg)kfft_cfg, mel_bins, (kiss_fft_cpx*)output);
+    free(fft_scratch);
 
     // For the final spectrogram, only the first 10 DCT values will be taken to
     // form the MFCCs (mel-log filterbank cepstral coeficients).
@@ -154,6 +124,7 @@ int main(int argc, char* argv[])
 	float complex z = output[i].real + output[i].img * I;
 	dct[i] = creal(z * 2.0 * cexp(-I * M_PI * i * 0.5 / 40));
     }
+    free(output);
     for (int i = 0; i < 40; i++) printf("dct[%d] = %.25f\n", i, dct[i]);
 
     float mfcc[40];
@@ -164,13 +135,61 @@ int main(int argc, char* argv[])
 	// TODO(gromero): check with Everton if that math really sucks in TF.
 	mfcc[i] = dct[i] * (1.0 / sqrtf(40 /* num. mel bins */ * 2));
     }
-    for (int i = 0; i < 10; i++) printf("mfcc[%d] = %2d\n", i, mfcc[i]);
+    for (int i = 0; i < 10; i++) printf("mfcc[%d] = %2f\n", i, mfcc[i]);
 
+    // scale and zero point taken from trained model
     float input_scale = 0.5847029089927673;
     float input_zero_point = 83;
-    int spectrogram[10]; // We've got 40 MFCCs, but we only use 10.
+    //int spec[10]; // We've got 40 MFCCs, but we only use 10 for the spectrogram
     for (int i = 0; i < 10; i++) {
-        spectrogram[i] = (int8_t)(mfcc[i] / input_scale + input_zero_point);
+        spec[i] = (int8_t)(mfcc[i] / input_scale + input_zero_point);
     }
-    for (int i = 0; i < 10; i++) printf("spectrogram[%d] = %2d\n", i, spectrogram[i]);
+    for (int i = 0; i < 10; i++) printf("spectrogram[%d] = %2d\n", i, spec[i]);
+}
+
+int spectrogram(float* ts /* time series */, int (*s)[10] /* spectrogram tensor 49x10 */)
+{
+    // Normalize
+    float max = get_max(ts, SAMPLES);
+    printf("Normalization, max = %.25f\n", max);
+    for (int i = 0; i < SAMPLES; i++) {
+        ts[i] /= max;
+    }
+
+    // Compute spectrogram for each of the FRAMES frames
+    for (int i = 0; i < FRAMES; i++) {
+        int frame_start = TS_STRIDE * i;
+        frame_spectrogram(&ts[frame_start], s[i]);
+    }
+}
+
+int main(int argc, char* argv[])
+{
+    float pcm_samples[SAMPLES];
+    int spectrogram_tensor[FRAMES][MFCC];
+
+    if (argc != 2) {
+        usage(argv[0]);
+    }
+
+    // Load raw 24-bit, signed, little endian, PCM
+    load_raw(argv[1], 0 /* offset */, SAMPLES, pcm_samples);
+
+    // Generate spectrogram tensor (49x10) over 1 s (16000 samples @ 16 kHz)
+    // TODO(gromero): add checks
+    spectrogram(pcm_samples, spectrogram_tensor);
+
+    // Print output tensor (will be removed)
+    printf("spectrogram_tensor[%d][%d] = {\n", FRAMES, MFCC);
+    for (int i = 0; i < FRAMES; i++) {
+	printf("{ ");
+        for (int j = 0; j < MFCC; j++) {
+            printf("%4d", spectrogram_tensor[i][j]);
+	    if ((j + 1) % MFCC) {
+                printf(", ");
+	    }
+	}
+	printf(" },\n");
+    }
+    printf("};\n");
 }
