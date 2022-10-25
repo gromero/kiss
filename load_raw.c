@@ -42,3 +42,21 @@ int load_raw(char* path, int sample_offset, int samples, float* output)
     }
     printf("]\n");
 }
+
+int load_raw_from_buffer(uint8_t *buffer, int samples, float* output)
+{
+    int num_samples = 16000;
+    if (samples < num_samples)
+	    num_samples = samples;
+
+    uint8_t a, b, c;
+    float f;
+    for (int j = 0, pos = 0; j < num_samples; j++, pos += 3 /* 24 bits */) {
+	c = buffer[pos + 0];
+        b = buffer[pos + 1];
+        a = buffer[pos + 2];
+        int i = (int) a << 24 | b << 16 | c << 8;
+	// Normalization from int to float
+        f = output[j] = ((float) i) * (1.0 / ((float) 0x80000000));
+    }
+}

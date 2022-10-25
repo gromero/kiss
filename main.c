@@ -8,6 +8,7 @@
 #include "hann_window.h"
 #include "load_raw.h"
 #include "mel_weight.h"
+#include "input.h"
 
 #define FFT_SIZE  512   // closest value power of 2 above 480 (TS_FRAME)
 #define TS_FRAME  480   // 30 ms
@@ -173,7 +174,7 @@ int main(int argc, char* argv[])
     }
 
     // Load raw 24-bit, signed, little endian, PCM
-    load_raw(argv[1], 0 /* offset */, SAMPLES, pcm_samples);
+    load_raw_from_buffer(input, SAMPLES, pcm_samples);
 
     // Generate spectrogram tensor (49x10) over 1 s (16000 samples @ 16 kHz)
     // TODO(gromero): add checks
